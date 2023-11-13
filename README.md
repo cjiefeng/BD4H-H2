@@ -22,14 +22,14 @@ Run with mimic-iii dataset
 $ cd src && PYTHONPATH=../:. python3 mimic_iii/run_mortality.py
 ```
 
-Run with mimic-iii dataset (mortality)
+Run with mimic-iivdataset (mortality)
 ```
-$ cd src && PYTHONPATH=../:. python3 mimic_iii/run_mortality.py
+$ cd src && PYTHONPATH=../:. python3 mimic_iv/run_mortality.py
 ```
 
-Run with mimic-iii dataset (icu admission)
+Run with mimic-iv dataset (icu admission)
 ```
-$ cd src && PYTHONPATH=../:. python3 mimic_iii/run_admission.py
+$ cd src && PYTHONPATH=../:. python3 mimic_iv/run_admission.py
 ```
 
 ## Directory structure
