@@ -33,6 +33,7 @@ $ cd src && PYTHONPATH=../:. python3 mimic_iii/run_admission.py
 ```
 
 ## Directory structure
+```
 .
 ├── data/                           # all datasets
 ├── notebook/                       # experimental and exploration jupyter notebooks
@@ -49,3 +50,4 @@ $ cd src && PYTHONPATH=../:. python3 mimic_iii/run_admission.py
 │   └── utils
 │       └── reports.py              # report model metrics
 └── submissions/                    # all BD4H report submissions
+```
