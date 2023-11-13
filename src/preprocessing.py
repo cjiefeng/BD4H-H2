@@ -40,6 +40,7 @@ def run(
     drop_cols: List[str],
     label_col: str,
     seed: int,
+    test_size: float,
 ):
     data = read_csv(
         dir,
@@ -56,6 +57,7 @@ def run(
         drop_cols,
         label_col,
         seed,
+        test_size,
     )
 
     return X_train, X_test, y_train, y_test

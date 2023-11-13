@@ -1,5 +1,5 @@
 import preprocessing
-from mimic_iv_adm import original_models
+from mimic_iv import original_models, uniacs_models
 
 SEED = 99
 
@@ -16,11 +16,18 @@ def main():
             "ed_medgp_antibiotic_hrgp",
         ],
         drop_cols=["icu_adm_flag", "hosdeath_flag"],
-        label_col="icu_adm_flag",
+        label_col="hosdeath_flag",
         seed=SEED,
+        test_size=0.7,
     )
 
+    print("original models")
     original_models.run(X_train, X_test, y_train, y_test, SEED)
+    print("")
+    print("------------------------------------------------------------------")
+    print("uniacs models")
+    uniacs_models.run(X_train, X_test, y_train, y_test, SEED)
+    print("")
 
 
 if __name__ == "__main__":

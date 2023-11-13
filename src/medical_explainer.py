@@ -99,16 +99,16 @@ class explainer:
         for calibrated_classifier in self.calibrated_clf.calibrated_classifiers_:
             print("Kernel Explainer Iteration " + str(i))
             if self.pipeline_clf == "Neural_Network":
-                estimator = calibrated_classifier.base_estimator.named_steps[
+                estimator = calibrated_classifier.estimator.named_steps[
                     "Neural_Network"
                 ]
             else:
-                estimator = calibrated_classifier.base_estimator
+                estimator = calibrated_classifier.estimator
 
             explainer = shap.KernelExplainer(
-                calibrated_classifier.base_estimator.predict, self.X_train[:500].values
+                calibrated_classifier.estimator.predict, self.X_train[:100].values
             )
-            shap_values = explainer.shap_values(self.X_train.values, nsamples=500)
+            shap_values = explainer.shap_values(self.X_train.values, nsamples=100)
             # shap_values = explainer.shap_values(self.X_train[50:1000].values, nsamples=500)
 
             # shap_values_post = shap_values[1] + explainer.expected_value[1]
@@ -136,7 +136,7 @@ class explainer:
         shap_expected_values_list = []
         for calibrated_classifier in self.calibrated_clf.calibrated_classifiers_:
             explainer = shap.TreeExplainer(
-                calibrated_classifier.base_estimator,
+                calibrated_classifier.estimator,
                 feature_perturbation="tree_path_dependent",
             )
             shap_values = explainer.shap_values(self.X_train)
@@ -159,12 +159,12 @@ class explainer:
         shap_expected_values_list = []
         for calibrated_classifier in self.calibrated_clf.calibrated_classifiers_:
             if self.pipeline_clf == "Log_Reg":
-                estimator = calibrated_classifier.base_estimator.named_steps["Log_Reg"]
-                X_train = calibrated_classifier.base_estimator.named_steps[
+                estimator = calibrated_classifier.estimator.named_steps["Log_Reg"]
+                X_train = calibrated_classifier.estimator.named_steps[
                     "Scaler"
                 ].transform(self.X_train)
             else:
-                estimator = calibrated_classifier.base_estimator
+                estimator = calibrated_classifier.estimator
                 X_train = self.X_train
 
             explainer = shap.LinearExplainer(estimator, X_train)
@@ -179,25 +179,22 @@ class explainer:
         self.expected_value = np.mean(shap_expected_values_list)
 
     def get_clf_performance(self):
+        print("Original testing set")
         reports.print_metrics(
             self.y_test,
             self.clf.predict_proba(self.X_test)[:, 1],
             self.clf.predict(self.X_test),
         )
+        print("")
 
     def get_calibrated_clf_performance(self):
-        roc_auc = roc_auc_score(
-            self.y_test, self.calibrated_clf.predict_proba(self.X_test)[:, 1]
+        print("Calibrated testing set")
+        reports.print_metrics(
+            self.y_test,
+            self.calibrated_clf.predict_proba(self.X_test)[:, 1],
+            self.calibrated_clf.predict(self.X_test),
         )
-        print("ROC AUC: " + str(roc_auc))
-
-        average_precision = average_precision_score(
-            self.y_test, self.calibrated_clf.predict_proba(self.X_test)[:, 1]
-        )
-        print("Average Precision: " + str(average_precision))
-
-        accuracy = accuracy_score(self.y_test, self.calibrated_clf.predict(self.X_test))
-        print("Accuracy: " + str(accuracy))
+        print("")
 
     def find_breakpoints(
         self,
@@ -458,10 +455,10 @@ class explainer:
         skf = StratifiedKFold(n_splits=n_splits, random_state=self.seed, shuffle=True)
 
         print("| Step 1  ==> Calibrating model")
-        self.plot_calibration_original()
+        # self.plot_calibration_original()
         self.calibrate(cv=skf)
-        self.plot_calibration_calibrated()
-        self.get_clf_performance()
+        # self.plot_calibration_calibrated()
+        # self.get_clf_performance()
         self.get_calibrated_clf_performance()
         print("")
 

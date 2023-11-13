@@ -15,7 +15,7 @@ def fit_logistic_regression(
     X_train: pd.DataFrame,
     y_train: pd.Series,
     seed: int,
-) -> Tuple[LogisticRegression, pd.Series, pd.Series]:
+) -> Tuple[Pipeline, pd.Series, pd.Series]:
     estimators = [
         ("Scaler", StandardScaler()),
         ("Log_Reg", LogisticRegression(random_state=seed, solver="liblinear")),
@@ -40,7 +40,7 @@ def fit_random_forest(
     X_train: pd.DataFrame,
     y_train: pd.Series,
     seed: int,
-) -> Tuple[GradientBoostingClassifier, pd.Series, pd.Series]:
+) -> Tuple[RandomForestClassifier, pd.Series, pd.Series]:
     clf = RandomForestClassifier(n_estimators=140, max_depth=5, random_state=seed)
     clf = clf.fit(X_train, y_train)
     return clf
@@ -50,7 +50,7 @@ def fit_neural_network(
     X_train: pd.DataFrame,
     y_train: pd.Series,
     seed: int,
-) -> Tuple[GradientBoostingClassifier, pd.Series, pd.Series]:
+) -> Tuple[Pipeline, pd.Series, pd.Series]:
     estimators = [
         ("Scaler", StandardScaler()),
         (
@@ -100,9 +100,9 @@ def run(
 ):
     models = [
         ("Logistic Regression", fit_logistic_regression(X_train, y_train, seed)),
-        ("Gradient Boosting Classifier", fit_gradient_boosting(X_train, y_train, seed)),
-        ("Random Forest Classifier", fit_random_forest(X_train, y_train, seed)),
-        ("MLP Classifier", fit_neural_network(X_train, y_train, seed)),
+        ("Gradient Boosting", fit_gradient_boosting(X_train, y_train, seed)),
+        ("Random Forest", fit_random_forest(X_train, y_train, seed)),
+        ("MLP", fit_neural_network(X_train, y_train, seed)),
     ]
 
     for name, clf in models:
