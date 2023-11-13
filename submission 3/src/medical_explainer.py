@@ -1,21 +1,29 @@
-import pandas as pd
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
 import shap
-
 from csaps import csaps
-from pygam import LogisticGAM, s, f
-
 from scipy.special import expit, logit
-from sklearn.model_selection import StratifiedKFold
 from sklearn.calibration import CalibratedClassifierCV, calibration_curve
-from sklearn.metrics import roc_auc_score
-from sklearn.metrics import average_precision_score
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score, average_precision_score, roc_auc_score
+from sklearn.model_selection import StratifiedKFold
+
+from utils import reports
+
 
 class explainer:
-    def __init__(self, clf, X_train, y_train, X_test, y_test, p_thresholds=[0.1, 0.5, 0.9], pipeline_clf='Log_Reg', seed = 7):
-        self.version = '0.1'
+    def __init__(
+        self,
+        clf,
+        X_train,
+        y_train,
+        X_test,
+        y_test,
+        p_thresholds=[0.1, 0.5, 0.9],
+        pipeline_clf="Log_Reg",
+        seed=7,
+    ):
+        self.version = "0.1"
         self.seed = seed
         self.clf = clf
         self.calibrated_clf = np.nan
@@ -45,11 +53,10 @@ class explainer:
 
         self.p_thresholds = p_thresholds
         self.scoring_thresholds = []
-        self.scoring_table_columns = ['Score', 'Probability']
-        self.scoring_table = pd.DataFrame(columns = self.scoring_table_columns)
+        self.scoring_table_columns = ["Score", "Probability"]
+        self.scoring_table = pd.DataFrame(columns=self.scoring_table_columns)
 
         self.pipeline_clf = pipeline_clf
-
 
     def __version__(self):
         return self.version
@@ -66,21 +73,22 @@ class explainer:
         self.plot_calibration_curve(y_pred, n_bins)
 
     def plot_calibration_curve(self, y_pred, n_bins=10):
-        fraction_of_positives, mean_predicted_value = \
-            calibration_curve(self.y_test, y_pred, n_bins=n_bins)
+        fraction_of_positives, mean_predicted_value = calibration_curve(
+            self.y_test, y_pred, n_bins=n_bins
+        )
 
         plt.plot(mean_predicted_value, fraction_of_positives, "s-")
-        plt.ylabel('Fraction of positives')
-        plt.xlabel('Mean predicted value')
+        plt.ylabel("Fraction of positives")
+        plt.xlabel("Mean predicted value")
         plt.show()
 
         plt.hist(y_pred, range=(0, 1), bins=n_bins, histtype="step", lw=2)
-        plt.ylabel('Count')
-        plt.xlabel('Mean predicted value')
+        plt.ylabel("Count")
+        plt.xlabel("Mean predicted value")
         plt.show()
 
     def calibrate(self, cv=5):
-        self.calibrated_clf = CalibratedClassifierCV(self.clf, cv=cv, method='isotonic')
+        self.calibrated_clf = CalibratedClassifierCV(self.clf, cv=cv, method="isotonic")
         self.calibrated_clf.fit(self.X_train, self.y_train)
 
     def calculate_kernel_shap(self):
@@ -89,21 +97,28 @@ class explainer:
         shap_expected_values_list = []
         i = 0
         for calibrated_classifier in self.calibrated_clf.calibrated_classifiers_:
-            print('Kernel Explainer Iteration ' + str(i))
-            if self.pipeline_clf == 'Neural_Network':
-                estimator = calibrated_classifier.base_estimator.named_steps['Neural_Network']
+            print("Kernel Explainer Iteration " + str(i))
+            if self.pipeline_clf == "Neural_Network":
+                estimator = calibrated_classifier.base_estimator.named_steps[
+                    "Neural_Network"
+                ]
             else:
                 estimator = calibrated_classifier.base_estimator
 
             explainer = shap.KernelExplainer(
-                calibrated_classifier.base_estimator.predict, self.X_train[:500].values)
+                calibrated_classifier.base_estimator.predict, self.X_train[:500].values
+            )
             shap_values = explainer.shap_values(self.X_train.values, nsamples=500)
             # shap_values = explainer.shap_values(self.X_train[50:1000].values, nsamples=500)
 
             # shap_values_post = shap_values[1] + explainer.expected_value[1]
             shap_values_post = shap_values + explainer.expected_value
-            shap_values_post = np.where(shap_values_post >= 0.0001, shap_values_post, 0.0001)
-            shap_values_post = np.where(shap_values_post <= 0.9999, shap_values_post, 0.9999)
+            shap_values_post = np.where(
+                shap_values_post >= 0.0001, shap_values_post, 0.0001
+            )
+            shap_values_post = np.where(
+                shap_values_post <= 0.9999, shap_values_post, 0.9999
+            )
 
             # shap_values_list.append(shap_values_post)
             shap_values_list.append(logit(shap_values_post))
@@ -111,7 +126,9 @@ class explainer:
             shap_expected_values_list.append(logit(explainer.expected_value))
             i += 1
 
-        self.shap_values = np.array(shap_values_list).sum(axis=0) / len(shap_values_list)
+        self.shap_values = np.array(shap_values_list).sum(axis=0) / len(
+            shap_values_list
+        )
         self.expected_value = np.mean(shap_expected_values_list)
 
     def calculate_tree_shap(self):
@@ -120,68 +137,75 @@ class explainer:
         for calibrated_classifier in self.calibrated_clf.calibrated_classifiers_:
             explainer = shap.TreeExplainer(
                 calibrated_classifier.base_estimator,
-                feature_perturbation = "tree_path_dependent")
+                feature_perturbation="tree_path_dependent",
+            )
             shap_values = explainer.shap_values(self.X_train)
             expected_value = explainer.expected_value
             if len(shap_values) == 2:
-                shap_values = logit(shap_values[1]+expected_value[1]) - logit(expected_value[1])
+                shap_values = logit(shap_values[1] + expected_value[1]) - logit(
+                    expected_value[1]
+                )
                 expected_value = logit(expected_value[1])
             shap_values_list.append(shap_values)
             shap_expected_values_list.append(expected_value)
 
-        self.shap_values = np.array(shap_values_list).sum(axis=0) / len(shap_values_list)
+        self.shap_values = np.array(shap_values_list).sum(axis=0) / len(
+            shap_values_list
+        )
         self.expected_value = np.mean(shap_expected_values_list)
 
     def calculate_linear_shap(self):
         shap_values_list = []
         shap_expected_values_list = []
         for calibrated_classifier in self.calibrated_clf.calibrated_classifiers_:
-            if self.pipeline_clf == 'Log_Reg':
-                estimator = calibrated_classifier.base_estimator.named_steps['Log_Reg']
-                X_train = calibrated_classifier.base_estimator.named_steps['Scaler'].transform(self.X_train)
+            if self.pipeline_clf == "Log_Reg":
+                estimator = calibrated_classifier.base_estimator.named_steps["Log_Reg"]
+                X_train = calibrated_classifier.base_estimator.named_steps[
+                    "Scaler"
+                ].transform(self.X_train)
             else:
                 estimator = calibrated_classifier.base_estimator
                 X_train = self.X_train
 
-            explainer = shap.LinearExplainer(
-                estimator,
-                X_train)
-                # feature_perturbation = "interventional")
+            explainer = shap.LinearExplainer(estimator, X_train)
+            # feature_perturbation = "interventional")
             shap_values = explainer.shap_values(X_train)
             shap_values_list.append(shap_values)
             shap_expected_values_list.append(explainer.expected_value)
 
-        self.shap_values = np.array(shap_values_list).sum(axis=0) / len(shap_values_list)
+        self.shap_values = np.array(shap_values_list).sum(axis=0) / len(
+            shap_values_list
+        )
         self.expected_value = np.mean(shap_expected_values_list)
 
     def get_clf_performance(self):
-        roc_auc = roc_auc_score(self.y_test,
-            self.clf.predict_proba(self.X_test)[:, 1])
-        print("ROC AUC: " + str(roc_auc))
-
-        average_precision = average_precision_score(self.y_test,
-            self.clf.predict_proba(self.X_test)[:, 1])
-        print("Average Precision: " + str(average_precision))
-
-        accuracy = accuracy_score(self.y_test,
-            self.clf.predict(self.X_test))
-        print("Accuracy: " + str(accuracy))
+        reports.print_metrics(
+            self.y_test,
+            self.clf.predict_proba(self.X_test)[:, 1],
+            self.clf.predict(self.X_test),
+        )
 
     def get_calibrated_clf_performance(self):
-        roc_auc = roc_auc_score(self.y_test,
-            self.calibrated_clf.predict_proba(self.X_test)[:, 1])
+        roc_auc = roc_auc_score(
+            self.y_test, self.calibrated_clf.predict_proba(self.X_test)[:, 1]
+        )
         print("ROC AUC: " + str(roc_auc))
 
-        average_precision = average_precision_score(self.y_test,
-            self.calibrated_clf.predict_proba(self.X_test)[:, 1])
+        average_precision = average_precision_score(
+            self.y_test, self.calibrated_clf.predict_proba(self.X_test)[:, 1]
+        )
         print("Average Precision: " + str(average_precision))
 
-        accuracy = accuracy_score(self.y_test,
-            self.calibrated_clf.predict(self.X_test))
+        accuracy = accuracy_score(self.y_test, self.calibrated_clf.predict(self.X_test))
         print("Accuracy: " + str(accuracy))
 
-    def find_breakpoints(self, column_label, moving_average_size=50,
-                         spline_sample_size=100, plot_graphs=False):
+    def find_breakpoints(
+        self,
+        column_label,
+        moving_average_size=50,
+        spline_sample_size=100,
+        plot_graphs=False,
+    ):
         column_index = self.X_train.columns.get_indexer([column_label])[0]
         column_shap_values = self.shap_values[:, column_index]
         column_values = self.X_train[column_label].values
@@ -197,9 +221,8 @@ class explainer:
 
         # Start of moving average algorithm
         xs = np.linspace(
-            column_values_sorted[0],
-            column_values_sorted[-1],
-            moving_average_size)
+            column_values_sorted[0], column_values_sorted[-1], moving_average_size
+        )
         x = []
         y = []
 
@@ -212,13 +235,13 @@ class explainer:
             else:
                 if index == moving_average_size - 1:
                     range_index = np.where(
-                        (column_values_sorted >= start) &
-                        (column_values_sorted <= xi))
+                        (column_values_sorted >= start) & (column_values_sorted <= xi)
+                    )
                 else:
                     range_index = np.where(
-                        (column_values_sorted >= start) &
-                        (column_values_sorted < xi))
-                x_mean = (start + xi)/2
+                        (column_values_sorted >= start) & (column_values_sorted < xi)
+                    )
+                x_mean = (start + xi) / 2
 
                 if len(range_index[0]) > 0:
                     y_mean = np.mean(column_shap_values_sorted[range_index])
@@ -238,7 +261,7 @@ class explainer:
 
         # Interpolate nan values
         nans, mask = self.nan_helper(y)
-        y[nans]= np.interp(mask(nans), mask(~nans), y[~nans])
+        y[nans] = np.interp(mask(nans), mask(~nans), y[~nans])
 
         # Find the best fitting spline
         xs = np.linspace(x[0], x[-1], spline_sample_size)
@@ -249,7 +272,7 @@ class explainer:
         self.ys_array.append(ys)
 
         if plot_graphs:
-            plt.plot(x, y, 'o', xs, ys, '-')
+            plt.plot(x, y, "o", xs, ys, "-")
             plt.show()
 
         # Find ranges with different risks with respect to baseline
@@ -264,23 +287,23 @@ class explainer:
                 range_arr.append(xi)
                 start = xi
             else:
-                if ys_sign[index] != ys_sign[index-1]:
-                    x1, y1 = xs[index-1], ys[index-1]
+                if ys_sign[index] != ys_sign[index - 1]:
+                    x1, y1 = xs[index - 1], ys[index - 1]
                     x2, y2 = xs[index], ys[index]
 
-                    gradient = (y2-y1)/(x2-x1)
+                    gradient = (y2 - y1) / (x2 - x1)
                     intercept = y1 - gradient * x1
-                    x_intercept = - intercept / gradient
+                    x_intercept = -intercept / gradient
 
                     end = x_intercept
-                    range_index = np.where((column_values_sorted >= start) &
-                                           (column_values_sorted <= end))
+                    range_index = np.where(
+                        (column_values_sorted >= start) & (column_values_sorted <= end)
+                    )
 
                     if len(range_index[0]) != 0:
                         range_arr.append(end)
                         start = end
             index += 1
-
 
         # Calculate risks and odds ratio within each range
         # column_actual_shap_values_sorted = np.add(
@@ -294,8 +317,10 @@ class explainer:
 
         for index in range(len(range_arr)):
             if index != 0:
-                range_index =  np.where((column_values_sorted >= range_arr[index-1]) &
-                                        (column_values_sorted <= range_arr[index]))
+                range_index = np.where(
+                    (column_values_sorted >= range_arr[index - 1])
+                    & (column_values_sorted <= range_arr[index])
+                )
 
                 # mean_shap_value = np.mean(column_actual_shap_values_sorted[range_index])
                 shap_array.append(np.mean(column_shap_values_sorted[range_index]))
@@ -305,15 +330,19 @@ class explainer:
                 # p_array.append(p)
                 # or_array.append(p/(1-p))
 
-        return range_arr, shap_array, shap_sd_array, shap_n_array#, p_array, or_array
+        return range_arr, shap_array, shap_sd_array, shap_n_array  # , p_array, or_array
 
     def find_breakpoints_novel(self, verbose=False):
         self.xs_array = []
         self.ys_array = []
         for variable in self.variables:
             # breakpoints, shap_array, p_array, or_array = self.find_breakpoints(
-            breakpoints, shap_array, shap_sd_array, shap_n_array = self.find_breakpoints(
-                variable, plot_graphs=False)
+            (
+                breakpoints,
+                shap_array,
+                shap_sd_array,
+                shap_n_array,
+            ) = self.find_breakpoints(variable, plot_graphs=False)
             self.breakpoints_list.append(breakpoints)
             self.shap_array_list.append(shap_array)
             self.shap_sd_array_list.append(shap_sd_array)
@@ -346,7 +375,10 @@ class explainer:
             else:
                 max_value = self.X_train[variable].max()
                 min_value = self.X_train[variable].min()
-                breakpoints = [ min_value+(i+1)/len(quantiles)*(max_value-min_value) for i in range(len(quantiles))]
+                breakpoints = [
+                    min_value + (i + 1) / len(quantiles) * (max_value - min_value)
+                    for i in range(len(quantiles))
+                ]
                 breakpoints = np.append(min_value, breakpoints)
                 breakpoints = np.append(breakpoints, max_value)
 
@@ -359,8 +391,7 @@ class explainer:
             column_shap_values_sorted = column_shap_values[sorted_index]
             column_values_sorted = column_values[sorted_index]
 
-
-             # Calculate risks and odds ratio within each range
+            # Calculate risks and odds ratio within each range
             # column_actual_shap_values_sorted = np.add(
             #     column_shap_values_sorted, self.expected_value)
 
@@ -372,12 +403,16 @@ class explainer:
 
             for index in range(len(breakpoints)):
                 if index != 0:
-                    range_index =  np.where((column_values_sorted >= breakpoints[index-1]) &
-                                            (column_values_sorted <= breakpoints[index]))
+                    range_index = np.where(
+                        (column_values_sorted >= breakpoints[index - 1])
+                        & (column_values_sorted <= breakpoints[index])
+                    )
 
                     # mean_shap_value = np.mean(column_actual_shap_values_sorted[range_index])
                     shap_array.append(np.mean(column_shap_values_sorted[range_index]))
-                    shap_sd_array.append(np.mean(column_shap_values_sorted[range_index]))
+                    shap_sd_array.append(
+                        np.mean(column_shap_values_sorted[range_index])
+                    )
                     shap_n_array.append(len(column_shap_values_sorted[range_index]))
                     # p = expit(mean_shap_value)
                     # p_array.append(p)
@@ -401,7 +436,15 @@ class explainer:
                 # print(or_array)
                 print("")
 
-    def fit(self, top_n=10, verbose=False, method='novel', shap_method='linear', n_splits=5, calculator_threshold=0.05):
+    def fit(
+        self,
+        top_n=10,
+        verbose=False,
+        method="novel",
+        shap_method="linear",
+        n_splits=5,
+        calculator_threshold=0.05,
+    ):
         # Feature selection with top SHAP values
 
         self.breakpoints_list = []
@@ -414,41 +457,41 @@ class explainer:
 
         skf = StratifiedKFold(n_splits=n_splits, random_state=self.seed, shuffle=True)
 
-        print('| Step 1  ==> Calibrating model')
+        print("| Step 1  ==> Calibrating model")
         self.plot_calibration_original()
         self.calibrate(cv=skf)
         self.plot_calibration_calibrated()
         self.get_clf_performance()
         self.get_calibrated_clf_performance()
-        print('')
+        print("")
 
-        print('| Step 2 ==> Calculate SHAP values')
-        if shap_method == 'linear':
+        print("| Step 2 ==> Calculate SHAP values")
+        if shap_method == "linear":
             self.calculate_linear_shap()
-        elif shap_method == 'tree':
+        elif shap_method == "tree":
             self.calculate_tree_shap()
-        elif shap_method == 'kernel':
+        elif shap_method == "kernel":
             # print('Neural Network Placeholder')
             self.calculate_kernel_shap()
         else:
-            print('SHAP explainer not executed')
-            return ''
-        print('')
+            print("SHAP explainer not executed")
+            return ""
+        print("")
 
         self.variables = self.X_train.columns[
             np.argsort(np.abs(self.shap_values).mean(0))
         ][::-1][:top_n].values
 
-        print('| Step 3 ==> Fit clinical score calculator')
-        if method == 'novel':
-            print('Novel fitting')
+        print("| Step 3 ==> Fit clinical score calculator")
+        if method == "novel":
+            print("Novel fitting")
             self.find_breakpoints_novel(verbose)
-        elif method == 'quantile':
-            print('Quantile fitting')
+        elif method == "quantile":
+            print("Quantile fitting")
             self.find_breakpoints_quantile(verbose=verbose)
         else:
-            print('Nothing fitted!')
-            return ''
+            print("Nothing fitted!")
+            return ""
 
         self.fit_calculator(calculator_threshold)
         self.generate_calculator_scores()
@@ -460,14 +503,17 @@ class explainer:
                 if verbose:
                     verbose_string = "Value <= " + str(breakpoint)
                     if level > 0:
-                        verbose_string = str(self.breakpoints_list[index][level-1]) + \
-                            ' < ' + verbose_string
+                        verbose_string = (
+                            str(self.breakpoints_list[index][level - 1])
+                            + " < "
+                            + verbose_string
+                        )
                     print(verbose_string)
                 return level
             level += 1
 
         if verbose:
-            print('Value > ' + str(value))
+            print("Value > " + str(value))
         return level
 
     def predict_row(self, df_row, verbose=False, threshold_choice=-1):
@@ -515,14 +561,14 @@ class explainer:
 
         return np.array(probs)
 
-    def predict_row_calculator(self, df_row, verbose=False, reference_zero = True):
+    def predict_row_calculator(self, df_row, verbose=False, reference_zero=True):
         index = 0
         cum_score = 0
         cum_logodds = 0
 
         for variable in self.variables:
             if verbose:
-                print("Variable:"+ variable)
+                print("Variable:" + variable)
                 print("Variable value:" + str(df_row[variable]))
 
             level = self.find_breakpoint_level(df_row[variable], index, verbose=verbose)
@@ -557,7 +603,7 @@ class explainer:
         return (
             score_array,
             prob_array,
-            (score_array >= self.score_thresholds[threshold_choice]).astype(int)
+            (score_array >= self.score_thresholds[threshold_choice]).astype(int),
         )
 
     def fit_calculator(self, calculator_threshold=0.05):
@@ -565,14 +611,17 @@ class explainer:
         for shap_array in self.shap_array_list:
             shap_array = np.array(shap_array)
             if index == 0 or np.min(shap_array) < self.unit_shap_value:
-                shap_values_no_zeros = shap_array[np.abs(shap_array) >= calculator_threshold]
+                shap_values_no_zeros = shap_array[
+                    np.abs(shap_array) >= calculator_threshold
+                ]
                 self.unit_shap_value = np.min(np.absolute(shap_values_no_zeros))
             index += 1
 
         self.score_array_list = []
         for shap_array in self.shap_array_list:
-            self.score_array_list.append(np.rint(np.true_divide(
-                shap_array, self.unit_shap_value)))
+            self.score_array_list.append(
+                np.rint(np.true_divide(shap_array, self.unit_shap_value))
+            )
 
     def generate_calculator_scores(self, reference_zero=True):
         neg_score_list = []
@@ -585,7 +634,7 @@ class explainer:
         min_score = np.sum(neg_score_list)
         max_score = np.sum(pos_score_list)
 
-        self.scoring_table = pd.DataFrame(columns = self.scoring_table_columns)
+        self.scoring_table = pd.DataFrame(columns=self.scoring_table_columns)
         self.score_thresholds = []
 
         i = min_score
@@ -595,7 +644,7 @@ class explainer:
                 score += abs(min_score)
 
             prob = expit(i * self.unit_shap_value + self.expected_value)
-            new_row = pd.DataFrame([[score, prob]],columns=self.scoring_table_columns)
+            new_row = pd.DataFrame([[score, prob]], columns=self.scoring_table_columns)
             self.scoring_table = pd.concat([self.scoring_table, new_row])
 
             i += 1
@@ -607,7 +656,9 @@ class explainer:
 
         for p_threshold in self.p_thresholds:
             print("Probability threshold: " + str(p_threshold))
-            score_threshold = self.scoring_table[self.scoring_table['Probability'] <= p_threshold]['Score'].max()
+            score_threshold = self.scoring_table[
+                self.scoring_table["Probability"] <= p_threshold
+            ]["Score"].max()
             self.score_thresholds.append(score_threshold)
             print("Score threshold: " + str(score_threshold))
             print("")
@@ -616,50 +667,66 @@ class explainer:
     def print_calculator(self):
         i = 0
         import math
+
         for variable in self.variables:
             shap_array = self.shap_array_list[i]
             breakpoints = self.breakpoints_list[i]
             shap_sd_array = self.shap_sd_array_list[i]
             shap_n_array = self.shap_n_array_list[i]
-            
+
             min_shap_value = np.min(shap_array)
             min_shap_value_index = np.argmin(shap_array)
             min_shap_value_sd = shap_sd_array[min_shap_value_index]
             min_shap_value_n = shap_n_array[min_shap_value_index]
-            
+
             j = 0
             for shap_value in shap_array:
                 if j == 0:
-                    upper_threshold = round(breakpoints[j+1], 2)
+                    upper_threshold = round(breakpoints[j + 1], 2)
                     print(variable + "<=" + str(upper_threshold))
-                elif j+1 < len(shap_array):
+                elif j + 1 < len(shap_array):
                     lower_threshold = round(breakpoints[j], 2)
-                    upper_threshold = round(breakpoints[j+1], 2)
-                    print(str(lower_threshold) + "<" 
-                        + variable + "<=" 
-                        + str(upper_threshold))
+                    upper_threshold = round(breakpoints[j + 1], 2)
+                    print(
+                        str(lower_threshold)
+                        + "<"
+                        + variable
+                        + "<="
+                        + str(upper_threshold)
+                    )
                 else:
                     lower_threshold = round(breakpoints[j], 2)
                     print(str(lower_threshold) + "<" + variable)
-                
+
                 diff_shap_value = shap_value - min_shap_value
                 odds_ratio = math.exp(diff_shap_value)
-                odds_ratio = round(odds_ratio, 3)        
+                odds_ratio = round(odds_ratio, 3)
                 print("Odds Ratio: " + str(odds_ratio))
-        
+
                 if j != min_shap_value_index:
                     shap_value_sd = shap_sd_array[j]
                     shap_value_n = shap_n_array[j]
-                    sd = math.sqrt(((shap_value_n-1)*shap_value_sd + (min_shap_value_n-1)*min_shap_value_sd)/(shap_value_n+min_shap_value_n-2))
-                    se = sd * math.sqrt(1/shap_value_n + 1/min_shap_value_n)
-                    odds_ratio_upper = round(math.exp(diff_shap_value + se*1.96),3)
-                    odds_ratio_lower = round(math.exp(diff_shap_value - se*1.96),3)
-                    print("Confidence interval: " + str(odds_ratio_lower) + ", " + str(odds_ratio_upper))
-                
-                j+=1
+                    sd = math.sqrt(
+                        (
+                            (shap_value_n - 1) * shap_value_sd
+                            + (min_shap_value_n - 1) * min_shap_value_sd
+                        )
+                        / (shap_value_n + min_shap_value_n - 2)
+                    )
+                    se = sd * math.sqrt(1 / shap_value_n + 1 / min_shap_value_n)
+                    odds_ratio_upper = round(math.exp(diff_shap_value + se * 1.96), 3)
+                    odds_ratio_lower = round(math.exp(diff_shap_value - se * 1.96), 3)
+                    print(
+                        "Confidence interval: "
+                        + str(odds_ratio_lower)
+                        + ", "
+                        + str(odds_ratio_upper)
+                    )
+
+                j += 1
 
             print()
-            i+=1
+            i += 1
 
     def plot_calculator_features(self, titles=None):
         shap_values_df = pd.DataFrame(self.shap_values, columns=self.X_train.columns)
@@ -681,26 +748,26 @@ class explainer:
 
             score_x = []
             score_y = []
-            
+
             i = 0
             for score in self.shap_array_list[j]:
                 score_x.append(self.breakpoints_list[j][i])
                 score_y.append(score)
-                score_x.append(self.breakpoints_list[j][i+1])
+                score_x.append(self.breakpoints_list[j][i + 1])
                 score_y.append(score)
-                i+=1
-                
+                i += 1
+
             xs = self.xs_array[j]
             ys = self.ys_array[j]
 
-            #plt.subplots() 
-            plt.subplot(2, 5, j+1)
-            plt.scatter(x, y, s=2, c='lightblue')
-            plt.plot(xs, ys, c='navy')
-            plt.plot(score_x, score_y, c='gold')
-            plt.axhline(0, linestyle='--', color='gray')
+            # plt.subplots()
+            plt.subplot(2, 5, j + 1)
+            plt.scatter(x, y, s=2, c="lightblue")
+            plt.plot(xs, ys, c="navy")
+            plt.plot(score_x, score_y, c="gold")
+            plt.axhline(0, linestyle="--", color="gray")
             plt.title(titles[j])
-            j+=1
+            j += 1
 
         plt.subplots_adjust(hspace=0.3)
         plt.show()

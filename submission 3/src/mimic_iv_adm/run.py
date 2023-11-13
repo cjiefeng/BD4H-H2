@@ -1,4 +1,7 @@
 import preprocessing
+from mimic_iv_adm import original_models
+
+SEED = 99
 
 
 def main():
@@ -14,7 +17,10 @@ def main():
         ],
         drop_cols=["icu_adm_flag", "hosdeath_flag"],
         label_col="icu_adm_flag",
+        seed=SEED,
     )
+
+    original_models.run(X_train, X_test, y_train, y_test, SEED)
 
 
 if __name__ == "__main__":

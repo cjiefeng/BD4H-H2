@@ -20,8 +20,8 @@ def clean_train_test_split(
     data: pd.DataFrame,
     drop_cols: List[str],
     label_col: str,
+    seed,
     test_size: float = 0.9,
-    seed: int = 99,
 ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.Series, pd.Series]:
     X = data.drop(drop_cols, axis=1)
     y = data[label_col]
@@ -39,6 +39,7 @@ def run(
     ohe_cols: List[str],
     drop_cols: List[str],
     label_col: str,
+    seed: int,
 ):
     data = read_csv(
         dir,
@@ -54,6 +55,7 @@ def run(
         data,
         drop_cols,
         label_col,
+        seed,
     )
 
     return X_train, X_test, y_train, y_test
