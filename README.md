@@ -22,14 +22,14 @@ Run with mimic-iii dataset
 $ cd src && PYTHONPATH=../:. python3 mimic_iii/run_mortality.py
 ```
 
-Run with mimic-iii dataset (mortality)
+Run with mimic-iv dataset (mortality)
 ```
-$ cd src && PYTHONPATH=../:. python3 mimic_iii/run_mortality.py
+$ cd src && PYTHONPATH=../:. python3 mimic_iv/run_mortality.py
 ```
 
-Run with mimic-iii dataset (icu admission)
+Run with mimic-iv dataset (icu admission)
 ```
-$ cd src && PYTHONPATH=../:. python3 mimic_iii/run_admission.py
+$ cd src && PYTHONPATH=../:. python3 mimic_iv/run_admission.py
 ```
 
 ## Directory structure
@@ -41,6 +41,8 @@ $ cd src && PYTHONPATH=../:. python3 mimic_iii/run_admission.py
 ├── requirements.txt
 ├── src
 │   ├── medical_explainer.py        # uniacs explainer
+│   ├── mimic_iii
+│   │   ├── run_mortality.py        # run models with mortality as label
 │   ├── mimic_iv                    # pipelines specific to mimic-iv dataset
 │   │   ├── original_models.py      # models without uniacs
 │   │   ├── run_admission.py        # run models with icu_admission as label
