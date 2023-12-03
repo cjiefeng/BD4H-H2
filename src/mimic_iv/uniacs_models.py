@@ -1,3 +1,4 @@
+import numpy as np
 import pandas as pd
 from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
@@ -30,6 +31,10 @@ def explain_logistic_regression(
     print("Uniacs testing set")
     reports.print_metrics(y_test, probs, predictions)
     print("")
+    explainer.print_calculator()
+    explainer.plot_calculator_features(save_image=True)
+    print([x + np.abs(np.min(x)) for x in explainer.score_array_list])
+    print("")
 
 
 def explain_gradient_boosting(
@@ -49,6 +54,10 @@ def explain_gradient_boosting(
     print("Uniacs testing set")
     reports.print_metrics(y_test, probs, predictions)
     print("")
+    explainer.print_calculator()
+    explainer.plot_calculator_features(save_image=True)
+    print([x + np.abs(np.min(x)) for x in explainer.score_array_list])
+    print("")
 
 
 def explain_random_forest(
@@ -67,6 +76,10 @@ def explain_random_forest(
     scores, probs, predictions = explainer.predict_calculator(X_test)
     print("Uniacs testing set")
     reports.print_metrics(y_test, probs, predictions)
+    print("")
+    explainer.print_calculator()
+    explainer.plot_calculator_features(save_image=True)
+    print([x + np.abs(np.min(x)) for x in explainer.score_array_list])
     print("")
 
 
@@ -99,6 +112,10 @@ def explain_neural_network(
     scores, probs, predictions = explainer.predict_calculator(X_test)
     print("Uniacs testing set")
     reports.print_metrics(y_test, probs, predictions)
+    print("")
+    explainer.print_calculator()
+    explainer.plot_calculator_features(save_image=True)
+    print([x + np.abs(np.min(x)) for x in explainer.score_array_list])
     print("")
 
 

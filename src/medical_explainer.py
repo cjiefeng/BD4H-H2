@@ -725,7 +725,7 @@ class explainer:
             print()
             i += 1
 
-    def plot_calculator_features(self, titles=None):
+    def plot_calculator_features(self, titles=None, save_image=False):
         shap_values_df = pd.DataFrame(self.shap_values, columns=self.X_train.columns)
 
         plt.figure(figsize=(16, 6))
@@ -767,4 +767,7 @@ class explainer:
             j += 1
 
         plt.subplots_adjust(hspace=0.3)
-        plt.show()
+        if save_image:
+            plt.savefig(f"{self.clf.__class__.__name__}.png")
+        else:
+            plt.show()
